@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  color-scheme: light dark;
+}
+
+body {
+  @apply bg-surface-page text-ink-primary dark:bg-surface-darkpage dark:text-ink-dprimary;
+  font-feature-settings: "cv11";
+}
+
+::selection {
+  @apply bg-brand/30;
+}
+
+.card {
+  @apply relative rounded-2xl border border-black/[0.06] bg-surface-1 shadow-card dark:border-white/[0.07] dark:bg-surface-dark1 dark:shadow-card-dark;
+}
+
+.btn-primary {
+  @apply inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-brand/25 transition duration-150 ease-out;
+  background-image: linear-gradient(180deg, #f97316 0%, #c2410c 55%, #9a3412 100%);
+}
+
+.btn-primary:hover:not(:disabled) {
+  @apply -translate-y-px shadow-lg shadow-brand/30;
+  filter: brightness(1.04);
+}
+
+.btn-primary:active:not(:disabled) {
+  @apply translate-y-0;
+  filter: brightness(0.97);
+}
+
+.btn-primary:disabled {
+  @apply cursor-not-allowed opacity-60 shadow-none;
+}
+
+.input {
+  @apply w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20 dark:border-white/10;
+}

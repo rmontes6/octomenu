@@ -1,0 +1,97 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum DishCategory {
+  PLATO_UNICO
+  PRIMERO
+  SEGUNDO
+  ACOMPANAMIENTO
+}
+
+enum DishMealType {
+  COMIDA
+  CENA
+  AMBAS
+}
+
+enum MealSlot {
+  COMIDA
+  CENA
+}
+
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+}
+
+model Dish {
+  id             String           @id @default(cuid())
+  name           String
+  category       DishCategory
+  mealType       DishMealType
+  yieldsTwoMeals Boolean          @default(false)
+  active         Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  ingredients    DishIngredient[]
+  menuEntries    MenuEntry[]
+
+  @@index([category, mealType, active])
+}
+
+model DishIngredient {
+  id       String  @id @default(cuid())
+  dish     Dish    @relation(fields: [dishId], references: [id], onDelete: Cascade)
+  dishId   String
+  name     String
+  quantity Float?
+  unit     String?
+  order    Int     @default(0)
+
+  @@index([dishId])
+}
+
+model WeeklyMenu {
+  id        String              @id @default(cuid())
+  weekStart DateTime            @db.Date
+  createdAt DateTime            @default(now())
+  entries   MenuEntry[]
+  checks    ShoppingListCheck[]
+
+  @@unique([weekStart])
+}
+
+model MenuEntry {
+  id           String       @id @default(cuid())
+  weeklyMenu   WeeklyMenu   @relation(fields: [weeklyMenuId], references: [id], onDelete: Cascade)
+  weeklyMenuId String
+  dayOfWeek    Int
+  mealType     MealSlot
+  slot         DishCategory
+  dish         Dish         @relation(fields: [dishId], references: [id])
+  dishId       String
+  leftoverOf   MenuEntry?   @relation("Leftover", fields: [leftoverOfId], references: [id], onDelete: Cascade)
+  leftoverOfId String?
+  leftoverCopy MenuEntry[]  @relation("Leftover")
+
+  @@unique([weeklyMenuId, dayOfWeek, mealType, slot])
+  @@index([weeklyMenuId])
+}
+
+model ShoppingListCheck {
+  id           String     @id @default(cuid())
+  weeklyMenu   WeeklyMenu @relation(fields: [weeklyMenuId], references: [id], onDelete: Cascade)
+  weeklyMenuId String
+  itemKey      String
+  checked      Boolean    @default(false)
+
+  @@unique([weeklyMenuId, itemKey])
+}
