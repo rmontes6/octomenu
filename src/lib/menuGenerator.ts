@@ -150,14 +150,11 @@ export function generateWeek(dishes: DishForGeneration[], options: GenerateWeekO
 
       for (const { dish } of chosen) usedDishIds.add(dish.id);
 
-      // Con la estructura completa (primero + segundo) la guarnición es opcional (~50%).
-      // Con primero-solo o segundo-solo nunca puede quedar el plato solo sin más: la
-      // guarnición es obligatoria ahí (si el catálogo tiene alguna disponible). Nunca con
-      // plato único.
-      const wantsAcomp =
-        structure === "PRIMERO_SEGUNDO"
-          ? rng() < 0.5
-          : structure === "PRIMERO_ONLY" || structure === "SEGUNDO_ONLY";
+      // La guarnición solo se empareja con un segundo plato: con la estructura completa
+      // (primero + segundo, opcional ~50%) o con segundo-solo (obligatoria si el catálogo
+      // tiene alguna disponible — un segundo nunca puede quedar solo sin más). Nunca con
+      // primero-solo (no hay segundo al que acompañar) ni con plato único.
+      const wantsAcomp = structure === "PRIMERO_SEGUNDO" ? rng() < 0.5 : structure === "SEGUNDO_ONLY";
       if (wantsAcomp && acompPool.length > 0) {
         const acomp = pickPreferringFresh(acompPool, recentDishIds, rng)!;
         usedDishIds.add(acomp.id);
