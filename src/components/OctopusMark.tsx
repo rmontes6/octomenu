@@ -1,9 +1,10 @@
-import { MANTLE_PATH_D, MARK_VIEWBOX, OCTOPUS_Y_SHIFT, PLATE_RINGS, SUCKERS, TENTACLES } from "@/lib/logoMark";
+import { MANTLE_PATH_D, MARK_VIEWBOX, OCTOPUS_TRANSFORM, PLATE_RINGS, TENTACLE_PATHS } from "@/lib/logoMark";
 
 type Props = {
-  /** Fill/stroke color for the whole mark (no per-part color mixing). */
+  /** Fill color for the whole mark (single tone, no stroke). */
   color: string;
-  /** Include the circular plate rings around the octopus. Default: false. */
+  /** Include the circular plate rings around the octopus. Default: true — the plate is part of
+   * the standard mark. Pass false only for very small/dense contexts where the rings turn to mud. */
   showPlate?: boolean;
   /** Pixel size (mark is always square). */
   size: number;
@@ -11,7 +12,7 @@ type Props = {
 
 // No hooks/client-only APIs: this renders identically in a real browser
 // (NavBar) and inside a next/og ImageResponse tree (Satori).
-export default function OctopusMark({ color, showPlate = false, size }: Props) {
+export default function OctopusMark({ color, showPlate = true, size }: Props) {
   return (
     <svg width={size} height={size} viewBox={MARK_VIEWBOX} xmlns="http://www.w3.org/2000/svg">
       {showPlate && (
@@ -21,18 +22,11 @@ export default function OctopusMark({ color, showPlate = false, size }: Props) {
           ))}
         </g>
       )}
-      <g transform={`translate(0, ${OCTOPUS_Y_SHIFT})`}>
-        <path d={MANTLE_PATH_D} fill={color} fillRule="evenodd" />
-        <g fill="none" stroke={color} strokeLinecap="round" strokeLinejoin="round">
-          {TENTACLES.map((t, i) => (
-            <path key={i} d={t.d} strokeWidth={t.strokeWidth} />
-          ))}
-        </g>
-        <g stroke={color} strokeWidth={2.5} strokeLinecap="round">
-          {SUCKERS.map((s, i) => (
-            <line key={i} x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} />
-          ))}
-        </g>
+      <g transform={OCTOPUS_TRANSFORM} fill={color}>
+        {TENTACLE_PATHS.map((d, i) => (
+          <path key={i} d={d} />
+        ))}
+        <path d={MANTLE_PATH_D} fillRule="evenodd" />
       </g>
     </svg>
   );
