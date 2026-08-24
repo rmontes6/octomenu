@@ -28,10 +28,13 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     title: "OctoMenu",
   },
-  // Declared by hand (instead of the app/apple-icon.tsx file convention) so the URL's path
-  // segment itself changes with MARK_VERSION — iOS's Home Screen icon cache ignores query-string
-  // cache-busting, so the path is the only lever that reliably forces a refetch. See markVersion.ts.
+  // Manually specifying `icons` here disables Next's file-convention auto-detection for ALL
+  // icon types, not just the one overridden — so icon.svg has to be listed explicitly too, or
+  // the browser-tab favicon disappears. `apple` is versioned by URL path (not query string):
+  // iOS's Home Screen icon cache ignores query-string cache-busting, so the path is the only
+  // lever that reliably forces a refetch after the mark artwork changes. See markVersion.ts.
   icons: {
+    icon: `/icon.svg?${MARK_VERSION}`,
     apple: `/touch-icon/${MARK_VERSION}`,
   },
 };
