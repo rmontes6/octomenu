@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "automenu",
-    short_name: "automenu",
+    name: "OctoMenu",
+    short_name: "OctoMenu",
     description: "Generador de menús semanales y lista de la compra",
     start_url: "/",
     display: "standalone",

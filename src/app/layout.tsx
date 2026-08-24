@@ -11,12 +11,12 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "automenu",
+  title: "OctoMenu",
   description: "Generador de menús semanales y lista de la compra",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "automenu",
+    title: "OctoMenu",
   },
 };
 

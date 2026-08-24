@@ -52,7 +52,7 @@ function LoginForm() {
           >
             <OctopusMark color="#fdf3e7" size={30} />
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight">automenu</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">OctoMenu</h1>
           <p className="mt-1 text-sm text-ink-secondary dark:text-ink-dsecondary">
             Inicia sesión para gestionar tu menú
           </p>

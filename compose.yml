@@ -3,15 +3,15 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-automenu}
+      POSTGRES_USER: ${POSTGRES_USER:-octomenu}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Debes definir POSTGRES_PASSWORD en .env}
-      POSTGRES_DB: ${POSTGRES_DB:-automenu}
+      POSTGRES_DB: ${POSTGRES_DB:-octomenu}
     volumes:
       - db_data:/var/lib/postgresql/data
     ports:
       - "127.0.0.1:${DB_PORT:-5433}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-automenu} -d ${POSTGRES_DB:-automenu}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-octomenu} -d ${POSTGRES_DB:-octomenu}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -26,13 +26,13 @@ services:
       context: .
       args:
         NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3001}
-    image: automenu:latest
+    image: octomenu:latest
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-automenu}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-automenu}?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-octomenu}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-octomenu}?schema=public
       PGHOST: db
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3001}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?Debes definir NEXTAUTH_SECRET en .env}

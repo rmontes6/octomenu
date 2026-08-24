@@ -6,7 +6,7 @@ set -euo pipefail
 # docker compose. El servidor solo recibe la imagen ya construida
 # (nunca el código fuente), pensado para hosts con poca RAM.
 #
-# automenu convive en el mismo EC2 que trip2millionaire, que ya ocupa
+# OctoMenu convive en el mismo EC2 que trip2millionaire, que ya ocupa
 # los puertos 80/443 con su propio Caddy: este stack usa su propio
 # Caddy en CADDY_PORT (por defecto 8443), de momento sirviendo HTTP
 # plano (sin TLS), sin tocar el deploy de trip2millionaire.
@@ -46,7 +46,7 @@ if [[ -z "$PUBLIC_HOST" ]]; then
   exit 1
 fi
 
-IMAGE_NAME="automenu"
+IMAGE_NAME="octomenu"
 IMAGE_TAG="latest"
 IMAGE_REF="${IMAGE_NAME}:${IMAGE_TAG}"
 TAR_NAME="${IMAGE_NAME}.tar.gz"

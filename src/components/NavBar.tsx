@@ -28,7 +28,7 @@ export default function NavBar() {
             >
               <OctopusMark color="#fdf3e7" size={20} />
             </span>
-            automenu
+            OctoMenu
           </Link>
           <nav className="hidden items-center gap-1 sm:flex">
             {LINKS.map((link) => {
