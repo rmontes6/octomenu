@@ -150,10 +150,15 @@ export function generateWeek(dishes: DishForGeneration[], options: GenerateWeekO
 
       for (const { dish } of chosen) usedDishIds.add(dish.id);
 
-      // El acompañamiento solo tiene sentido junto a un segundo plato: con la estructura
-      // completa (primero + segundo) o con segundo-solo. Nunca con plato único ni con
-      // primero-solo (ahí no hay segundo al que acompañar).
-      if ((structure === "PRIMERO_SEGUNDO" || structure === "SEGUNDO_ONLY") && acompPool.length > 0 && rng() < 0.5) {
+      // Con la estructura completa (primero + segundo) la guarnición es opcional (~50%).
+      // Con primero-solo o segundo-solo nunca puede quedar el plato solo sin más: la
+      // guarnición es obligatoria ahí (si el catálogo tiene alguna disponible). Nunca con
+      // plato único.
+      const wantsAcomp =
+        structure === "PRIMERO_SEGUNDO"
+          ? rng() < 0.5
+          : structure === "PRIMERO_ONLY" || structure === "SEGUNDO_ONLY";
+      if (wantsAcomp && acompPool.length > 0) {
         const acomp = pickPreferringFresh(acompPool, recentDishIds, rng)!;
         usedDishIds.add(acomp.id);
         chosen.push({ slot: "ACOMPANAMIENTO", dish: acomp });

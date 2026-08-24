@@ -2,7 +2,7 @@ export const CATEGORY_LABELS: Record<string, string> = {
   PLATO_UNICO: "Plato único",
   PRIMERO: "Primer plato",
   SEGUNDO: "Segundo plato",
-  ACOMPANAMIENTO: "Acompañamiento",
+  ACOMPANAMIENTO: "Guarnición",
 };
 
 export const MEAL_TYPE_LABELS: Record<string, string> = {
