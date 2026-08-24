@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import clsx from "@/lib/clsx";
+import OctopusMark from "@/components/OctopusMark";
 
 const LINKS = [
   { href: "/menu", label: "Menú" },
@@ -22,10 +23,10 @@ export default function NavBar() {
         <div className="flex items-center gap-8">
           <Link href="/menu" className="flex items-center gap-2 font-semibold tracking-tight">
             <span
-              className="flex h-8 w-8 items-center justify-center rounded-xl text-base shadow-md shadow-brand/30"
+              className="flex h-8 w-8 items-center justify-center rounded-xl shadow-md shadow-brand/30"
               style={{ backgroundImage: "linear-gradient(180deg, #f97316 0%, #c2410c 55%, #9a3412 100%)" }}
             >
-              🍽️
+              <OctopusMark color="#fdf3e7" size={20} />
             </span>
             automenu
           </Link>

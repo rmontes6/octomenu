@@ -3,6 +3,7 @@
 import { useState, type FormEvent, Suspense } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
+import OctopusMark from "@/components/OctopusMark";
 
 function LoginForm() {
   const router = useRouter();
@@ -46,10 +47,10 @@ function LoginForm() {
       <div className="relative w-full max-w-sm">
         <div className="mb-8 text-center">
           <div
-            className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl text-2xl text-white shadow-lg"
+            className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl shadow-lg"
             style={{ backgroundImage: "linear-gradient(180deg, #f97316 0%, #c2410c 55%, #9a3412 100%)" }}
           >
-            🍽️
+            <OctopusMark color="#fdf3e7" size={30} />
           </div>
           <h1 className="text-2xl font-semibold tracking-tight">automenu</h1>
           <p className="mt-1 text-sm text-ink-secondary dark:text-ink-dsecondary">
