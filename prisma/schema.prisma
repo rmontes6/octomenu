@@ -20,6 +20,12 @@ enum DishMealType {
   AMBAS
 }
 
+enum DishSeason {
+  VERANO
+  INVIERNO
+  AMBAS
+}
+
 enum MealSlot {
   COMIDA
   CENA
@@ -42,14 +48,14 @@ model Dish {
   name           String
   category       DishCategory
   mealType       DishMealType
+  season         DishSeason       @default(AMBAS)
   yieldsTwoMeals Boolean          @default(false)
-  active         Boolean          @default(true)
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
   ingredients    DishIngredient[]
   menuEntries    MenuEntry[]
 
-  @@index([userId, category, mealType, active])
+  @@index([userId, category, mealType])
 }
 
 model DishIngredient {

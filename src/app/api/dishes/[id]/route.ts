@@ -14,12 +14,10 @@ const dishSchema = z.object({
   name: z.string().trim().min(1).max(100),
   category: z.enum(["PLATO_UNICO", "PRIMERO", "SEGUNDO", "ACOMPANAMIENTO"]),
   mealType: z.enum(["COMIDA", "CENA", "AMBAS"]),
+  season: z.enum(["VERANO", "INVIERNO", "AMBAS"]).default("AMBAS"),
   yieldsTwoMeals: z.boolean().default(false),
-  active: z.boolean().default(true),
   ingredients: z.array(ingredientSchema).default([]),
 });
-
-const activeSchema = z.object({ active: z.boolean() });
 
 type Params = { params: { id: string } };
 
@@ -40,22 +38,6 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (!userId) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   const body = await req.json().catch(() => null);
-
-  // Toggle rápido de disponibilidad (solo { active }) sin tener que reenviar
-  // el plato entero.
-  const activeOnly = activeSchema.safeParse(body);
-  if (activeOnly.success && body && Object.keys(body).length === 1) {
-    const { count } = await prisma.dish.updateMany({
-      where: { id: params.id, userId },
-      data: { active: activeOnly.data.active },
-    });
-    if (count === 0) return NextResponse.json({ error: "Plato no encontrado" }, { status: 404 });
-    const dish = await prisma.dish.findUnique({
-      where: { id: params.id },
-      include: { ingredients: { orderBy: { order: "asc" } } },
-    });
-    return NextResponse.json(dish);
-  }
 
   const parsed = dishSchema.safeParse(body);
   if (!parsed.success) {

@@ -22,6 +22,9 @@ export async function GET(req: NextRequest) {
 const createSchema = z.object({
   weekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   force: z.boolean().optional(),
+  excludedSlots: z
+    .array(z.object({ dayOfWeek: z.number().int().min(0).max(6), mealType: z.enum(["COMIDA", "CENA"]) }))
+    .optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -35,9 +38,12 @@ export async function POST(req: NextRequest) {
   }
 
   const weekStart = mondayOf(parseDateOnly(parsed.data.weekStart));
+  const excludedSlots = new Set(
+    (parsed.data.excludedSlots ?? []).map((s) => `${s.dayOfWeek}-${s.mealType}`)
+  );
 
   try {
-    const menu = await createWeeklyMenu(userId, weekStart, parsed.data.force ?? false);
+    const menu = await createWeeklyMenu(userId, weekStart, parsed.data.force ?? false, excludedSlots);
     return NextResponse.json(menu, { status: 201 });
   } catch (err) {
     if (err instanceof Error && err.message === "ALREADY_EXISTS") {

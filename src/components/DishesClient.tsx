@@ -3,7 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import clsx from "@/lib/clsx";
-import { CATEGORY_LABELS, CATEGORY_OPTIONS, MEAL_TYPE_LABELS, MEAL_TYPE_OPTIONS } from "@/lib/labels";
+import { CATEGORY_LABELS, CATEGORY_OPTIONS, MEAL_TYPE_LABELS, MEAL_TYPE_OPTIONS, SEASON_LABELS, SEASON_OPTIONS } from "@/lib/labels";
 
 type Ingredient = { id?: string; name: string; quantity: number | null; unit: string | null };
 
@@ -12,8 +12,8 @@ type Dish = {
   name: string;
   category: string;
   mealType: string;
+  season: string;
   yieldsTwoMeals: boolean;
-  active: boolean;
   ingredients: Ingredient[];
 };
 
@@ -21,8 +21,8 @@ type FormState = {
   name: string;
   category: string;
   mealType: string;
+  season: string;
   yieldsTwoMeals: boolean;
-  active: boolean;
   ingredients: Ingredient[];
 };
 
@@ -30,8 +30,8 @@ const EMPTY_FORM: FormState = {
   name: "",
   category: "PLATO_UNICO",
   mealType: "AMBAS",
+  season: "AMBAS",
   yieldsTwoMeals: false,
-  active: true,
   ingredients: [{ name: "", quantity: null, unit: null }],
 };
 
@@ -42,14 +42,12 @@ export default function DishesClient() {
   const [error, setError] = useState<string | null>(null);
 
   const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
-  const [showInactive, setShowInactive] = useState(false);
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   function load() {
     setLoading(true);
@@ -84,8 +82,8 @@ export default function DishesClient() {
       name: dish.name,
       category: dish.category,
       mealType: dish.mealType,
+      season: dish.season,
       yieldsTwoMeals: dish.yieldsTwoMeals,
-      active: dish.active,
       ingredients: dish.ingredients.length > 0 ? dish.ingredients : [{ name: "", quantity: null, unit: null }],
     });
     setFormOpen(true);
@@ -168,28 +166,8 @@ export default function DishesClient() {
     }
   }
 
-  async function handleToggleActive(dish: Dish) {
-    setTogglingId(dish.id);
-    setError(null);
-    try {
-      const res = await fetch(`/api/dishes/${dish.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ active: !dish.active }),
-      });
-      if (!res.ok) throw new Error("No se pudo actualizar la disponibilidad");
-      const updated: Dish = await res.json();
-      setDishes((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error desconocido");
-    } finally {
-      setTogglingId(null);
-    }
-  }
-
   const visible = dishes
     .filter((d) => categoryFilter === "ALL" || d.category === categoryFilter)
-    .filter((d) => showInactive || d.active)
     .sort((a, b) => a.name.localeCompare(b.name, "es"));
 
   return (
@@ -207,7 +185,10 @@ export default function DishesClient() {
       )}
 
       {formOpen && (
-        <form onSubmit={handleSubmit} className="card space-y-4 p-5">
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-4 rounded-2xl border border-brand/15 bg-[#fdf3e7] p-5 shadow-card dark:border-dbrand/15 dark:bg-[#2b1f16] dark:shadow-card-dark"
+        >
           <h2 className="text-sm font-semibold text-ink-secondary dark:text-ink-dsecondary">
             {editingId ? "Editar plato" : "Nuevo plato"}
           </h2>
@@ -253,6 +234,21 @@ export default function DishesClient() {
                 ))}
               </select>
             </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-ink-secondary dark:text-ink-dsecondary">Temporada</label>
+              <select
+                value={form.season}
+                onChange={(e) => setForm((f) => ({ ...f, season: e.target.value }))}
+                className="input"
+              >
+                {SEASON_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-4">
@@ -264,15 +260,6 @@ export default function DishesClient() {
                 className="h-4 w-4 rounded border-black/20 text-brand focus:ring-brand/30 dark:border-white/20"
               />
               Rinde para 2 tomas (se repite al día siguiente en la misma franja)
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={form.active}
-                onChange={(e) => setForm((f) => ({ ...f, active: e.target.checked }))}
-                className="h-4 w-4 rounded border-black/20 text-brand focus:ring-brand/30 dark:border-white/20"
-              />
-              Disponible ahora
             </label>
           </div>
 
@@ -337,7 +324,7 @@ export default function DishesClient() {
       )}
 
       <div className="flex flex-wrap items-center gap-3">
-        <div className="inline-flex flex-wrap rounded-xl border border-black/10 p-1 dark:border-white/10">
+        <div className="inline-flex flex-wrap rounded-xl border border-brand/15 p-1 dark:border-dbrand/15">
           <button
             type="button"
             onClick={() => setCategoryFilter("ALL")}
@@ -366,24 +353,21 @@ export default function DishesClient() {
             </button>
           ))}
         </div>
-        <label className="flex items-center gap-2 text-sm text-ink-secondary dark:text-ink-dsecondary">
-          <input
-            type="checkbox"
-            checked={showInactive}
-            onChange={(e) => setShowInactive(e.target.checked)}
-            className="h-4 w-4 rounded border-black/20 text-brand focus:ring-brand/30 dark:border-white/20"
-          />
-          Mostrar no disponibles
-        </label>
       </div>
 
-      <div className="card divide-y divide-black/5 dark:divide-white/5">
-        {loading && <div className="px-5 py-6 text-sm text-ink-muted">Cargando platos…</div>}
+      <div
+        className="divide-y divide-brand/10 rounded-2xl border border-brand/15 bg-[#f3e8d2] px-2 shadow-card dark:divide-dbrand/10 dark:border-dbrand/15 dark:bg-[#1c130d] dark:shadow-card-dark"
+        style={{
+          backgroundImage: "radial-gradient(circle, rgba(194,65,12,0.18) 1px, transparent 1px)",
+          backgroundSize: "16px 16px",
+        }}
+      >
+        {loading && <div className="px-3 py-6 text-sm text-ink-muted">Cargando platos…</div>}
         {!loading && visible.length === 0 && (
-          <div className="px-5 py-6 text-sm text-ink-muted">No hay platos que coincidan con el filtro.</div>
+          <div className="px-3 py-6 text-sm text-ink-muted">No hay platos que coincidan con el filtro.</div>
         )}
         {visible.map((dish) => (
-          <div key={dish.id} className={clsx("flex flex-wrap items-center gap-3 px-5 py-3.5", !dish.active && "opacity-50")}>
+          <div key={dish.id} className="flex flex-wrap items-center gap-3 px-3 py-3.5">
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium">{dish.name}</span>
@@ -392,9 +376,9 @@ export default function DishesClient() {
                     Rinde 2 tomas
                   </span>
                 )}
-                {!dish.active && (
+                {dish.season !== "AMBAS" && (
                   <span className="rounded-full bg-black/10 px-2 py-0.5 text-xs font-medium text-ink-muted dark:bg-white/10">
-                    No disponible
+                    {SEASON_LABELS[dish.season]}
                   </span>
                 )}
               </div>
@@ -406,14 +390,6 @@ export default function DishesClient() {
               </div>
             </div>
             <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                disabled={togglingId === dish.id}
-                onClick={() => handleToggleActive(dish)}
-                className="rounded-lg px-2 py-1 text-xs font-medium text-ink-secondary transition hover:bg-black/5 dark:text-ink-dsecondary dark:hover:bg-white/5 disabled:opacity-50"
-              >
-                {dish.active ? "Marcar no disponible" : "Marcar disponible"}
-              </button>
               <button
                 type="button"
                 onClick={() => openEdit(dish)}

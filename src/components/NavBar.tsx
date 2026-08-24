@@ -6,12 +6,22 @@ import { signOut, useSession } from "next-auth/react";
 import clsx from "@/lib/clsx";
 import OctopusMark from "@/components/OctopusMark";
 
-const LINKS = [
+const ALL_LINKS = [
   { href: "/menu", label: "Menú" },
   { href: "/menu/compra", label: "Lista de la compra" },
   { href: "/platos", label: "Platos" },
-  { href: "/usuarios", label: "Usuarios" },
 ];
+
+// "/menu" no debe marcarse activo en "/menu/compra": esa ruta ya tiene su
+// propio link. Gana el href más específico (más largo) que matchee.
+function isActiveHref(pathname: string | null, href: string) {
+  if (!pathname) return false;
+  if (pathname === href) return true;
+  if (!pathname.startsWith(href + "/")) return false;
+  return !ALL_LINKS.some(
+    (l) => l.href !== href && l.href.length > href.length && (pathname === l.href || pathname.startsWith(l.href + "/"))
+  );
+}
 
 export default function NavBar() {
   const pathname = usePathname();
@@ -31,28 +41,30 @@ export default function NavBar() {
             OctoMenu
           </Link>
           <nav className="hidden items-center gap-1 sm:flex">
-            {LINKS.map((link) => {
-              const active = pathname === link.href || pathname?.startsWith(link.href + "/");
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={clsx(
-                    "rounded-lg px-3 py-1.5 text-sm font-medium transition",
-                    active
-                      ? "bg-brand/10 text-brand dark:text-dbrand"
-                      : "text-ink-secondary hover:bg-black/5 dark:text-ink-dsecondary dark:hover:bg-white/5"
-                  )}
-                >
-                  {link.label}
-                </Link>
-              );
-            })}
+            {ALL_LINKS.map((link) => (
+              <NavLink key={link.href} href={link.href} label={link.label} pathname={pathname} />
+            ))}
           </nav>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <span className="hidden text-sm text-ink-muted sm:inline">{session?.user?.name}</span>
+          <Link
+            href="/usuarios"
+            title="Usuarios"
+            aria-label="Usuarios"
+            className={clsx(
+              "rounded-lg p-2 transition",
+              pathname === "/usuarios"
+                ? "bg-brand/10 text-brand dark:text-dbrand"
+                : "text-ink-secondary hover:bg-black/5 dark:text-ink-dsecondary dark:hover:bg-white/5"
+            )}
+          >
+            <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <circle cx={12} cy={8} r={4} />
+              <path d="M4 20c0-4.4 3.6-8 8-8s8 3.6 8 8" />
+            </svg>
+          </Link>
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
             className="rounded-lg border border-black/10 px-3 py-1.5 text-sm font-medium text-ink-secondary transition hover:bg-black/5 dark:border-white/10 dark:text-ink-dsecondary dark:hover:bg-white/5"
@@ -62,24 +74,38 @@ export default function NavBar() {
         </div>
       </div>
       <nav className="flex items-center gap-1 overflow-x-auto px-4 pb-2 sm:hidden">
-        {LINKS.map((link) => {
-          const active = pathname === link.href || pathname?.startsWith(link.href + "/");
-          return (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={clsx(
-                "whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition",
-                active
-                  ? "bg-brand/10 text-brand dark:text-dbrand"
-                  : "text-ink-secondary hover:bg-black/5 dark:text-ink-dsecondary dark:hover:bg-white/5"
-              )}
-            >
-              {link.label}
-            </Link>
-          );
-        })}
+        {ALL_LINKS.map((link) => (
+          <NavLink key={link.href} href={link.href} label={link.label} pathname={pathname} whitespaceNowrap />
+        ))}
       </nav>
     </header>
+  );
+}
+
+function NavLink({
+  href,
+  label,
+  pathname,
+  whitespaceNowrap,
+}: {
+  href: string;
+  label: string;
+  pathname: string | null;
+  whitespaceNowrap?: boolean;
+}) {
+  const active = isActiveHref(pathname, href);
+  return (
+    <Link
+      href={href}
+      className={clsx(
+        "rounded-lg px-3 py-1.5 text-sm font-medium transition",
+        whitespaceNowrap && "whitespace-nowrap",
+        active
+          ? "bg-brand/10 text-brand dark:text-dbrand"
+          : "text-ink-secondary hover:bg-black/5 dark:text-ink-dsecondary dark:hover:bg-white/5"
+      )}
+    >
+      {label}
+    </Link>
   );
 }

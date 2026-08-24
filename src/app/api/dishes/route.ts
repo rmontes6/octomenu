@@ -13,8 +13,8 @@ const dishSchema = z.object({
   name: z.string().trim().min(1).max(100),
   category: z.enum(["PLATO_UNICO", "PRIMERO", "SEGUNDO", "ACOMPANAMIENTO"]),
   mealType: z.enum(["COMIDA", "CENA", "AMBAS"]),
+  season: z.enum(["VERANO", "INVIERNO", "AMBAS"]).default("AMBAS"),
   yieldsTwoMeals: z.boolean().default(false),
-  active: z.boolean().default(true),
   ingredients: z.array(ingredientSchema).default([]),
 });
 

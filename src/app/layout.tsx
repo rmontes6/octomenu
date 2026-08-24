@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Caveat, Inter } from "next/font/google";
 import "./globals.css";
 import Providers from "@/components/Providers";
 import RegisterServiceWorker from "@/components/RegisterServiceWorker";
@@ -7,6 +7,15 @@ import RegisterServiceWorker from "@/components/RegisterServiceWorker";
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-sans",
+  display: "swap",
+});
+
+// Fuente "de receta" para la lista de la compra: solo se usa ahí (nombres de
+// ingredientes y cabeceras), el resto de la app sigue en Inter.
+const caveat = Caveat({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  variable: "--font-recipe",
   display: "swap",
 });
 
@@ -35,7 +44,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" suppressHydrationWarning className={inter.variable}>
+    <html lang="es" suppressHydrationWarning className={`${inter.variable} ${caveat.variable}`}>
       <body className="font-sans antialiased">
         <Providers>{children}</Providers>
         <RegisterServiceWorker />

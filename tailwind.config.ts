@@ -30,6 +30,7 @@ const config: Config = {
       },
       fontFamily: {
         sans: ["var(--font-sans)", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
+        recipe: ["var(--font-recipe)", "cursive"],
       },
       borderRadius: {
         xl: "1rem",

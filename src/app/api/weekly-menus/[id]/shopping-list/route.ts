@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
-import { getWeeklyMenuById } from "@/lib/menuService";
+import { getWeeklyMenuById, pruneOldShoppingListChecks } from "@/lib/menuService";
 import { buildShoppingList } from "@/lib/shoppingList";
 
 type Params = { params: { id: string } };
@@ -10,6 +10,8 @@ type Params = { params: { id: string } };
 export async function GET(_req: NextRequest, { params }: Params) {
   const userId = await requireUserId();
   if (!userId) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+
+  await pruneOldShoppingListChecks(userId);
 
   const menu = await getWeeklyMenuById(userId, params.id);
   if (!menu) return NextResponse.json({ error: "Menú no encontrado" }, { status: 404 });
