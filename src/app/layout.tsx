@@ -3,6 +3,7 @@ import { Caveat, Inter } from "next/font/google";
 import "./globals.css";
 import Providers from "@/components/Providers";
 import RegisterServiceWorker from "@/components/RegisterServiceWorker";
+import { MARK_VERSION } from "@/lib/markVersion";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -26,6 +27,12 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "default",
     title: "OctoMenu",
+  },
+  // Declared by hand (instead of the app/apple-icon.tsx file convention) so the URL's path
+  // segment itself changes with MARK_VERSION — iOS's Home Screen icon cache ignores query-string
+  // cache-busting, so the path is the only lever that reliably forces a refetch. See markVersion.ts.
+  icons: {
+    apple: `/touch-icon/${MARK_VERSION}`,
   },
 };
 
