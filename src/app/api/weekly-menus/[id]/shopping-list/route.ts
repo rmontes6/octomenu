@@ -11,7 +11,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
   const userId = await requireUserId();
   if (!userId) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
-  const menu = await getWeeklyMenuById(params.id);
+  const menu = await getWeeklyMenuById(userId, params.id);
   if (!menu) return NextResponse.json({ error: "Menú no encontrado" }, { status: 404 });
 
   const checks = await prisma.shoppingListCheck.findMany({ where: { weeklyMenuId: params.id } });
@@ -39,6 +39,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (!parsed.success) {
     return NextResponse.json({ error: "Datos inválidos", details: parsed.error.flatten() }, { status: 400 });
   }
+
+  const menu = await getWeeklyMenuById(userId, params.id);
+  if (!menu) return NextResponse.json({ error: "Menú no encontrado" }, { status: 404 });
 
   const check = await prisma.shoppingListCheck.upsert({
     where: { weeklyMenuId_itemKey: { weeklyMenuId: params.id, itemKey: parsed.data.itemKey } },

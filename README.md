@@ -46,7 +46,7 @@ npx prisma migrate dev --name <descripción>
 
 `./scripts/deploy.sh` construye la imagen Docker en local, la exporta y la copia por SSH al servidor definido por `DEPLOY_HOST`/`DEPLOY_PATH` en `.env` (nunca viaja código fuente, solo la imagen ya construida). Requiere que `DEPLOY_HOST` sea un alias configurado en `~/.ssh/config`.
 
-> **Estado actual**: el despliegue todavía no se ha hecho. automenu comparte servidor EC2 con `trip2millionaire`, que ya ocupa los puertos 80/443 con su propio Caddy; automenu está preparado para convivir con su propio Caddy en un puerto alternativo (`CADDY_PORT`, por defecto 8443) con certificado autofirmado (`tls internal`), sin tocar el deploy de `trip2millionaire`. De momento se trabaja solo en desarrollo hasta decidir el enfoque definitivo de infraestructura.
+> **Estado actual**: el despliegue todavía no se ha hecho. automenu comparte servidor EC2 con `trip2millionaire`, que ya ocupa los puertos 80/443 con su propio Caddy; automenu está preparado para convivir con su propio Caddy en un puerto alternativo (`CADDY_PORT`, por defecto 8443), sirviendo HTTP plano (sin TLS) de momento, sin tocar el deploy de `trip2millionaire`. Requiere abrir `CADDY_PORT` en el Security Group de la instancia.
 
 ## Estructura
 

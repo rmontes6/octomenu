@@ -9,6 +9,7 @@ const LINKS = [
   { href: "/menu", label: "Menú" },
   { href: "/menu/compra", label: "Lista de la compra" },
   { href: "/platos", label: "Platos" },
+  { href: "/usuarios", label: "Usuarios" },
 ];
 
 export default function NavBar() {

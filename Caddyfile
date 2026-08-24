@@ -1,4 +1,3 @@
-{$DOMAIN} {
-	tls internal
+http://{$DOMAIN} {
 	reverse_proxy app:3000
 }

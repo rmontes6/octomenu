@@ -54,7 +54,7 @@ services:
     environment:
       DOMAIN: ${DOMAIN:?Debes definir DOMAIN en .env}
     ports:
-      - "${CADDY_PORT:-8443}:443"
+      - "${CADDY_PORT:-8443}:80"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data

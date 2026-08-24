@@ -26,14 +26,19 @@ enum MealSlot {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  username     String   @unique
+  id           String       @id @default(cuid())
+  username     String       @unique
   passwordHash String
-  createdAt    DateTime @default(now())
+  isAdmin      Boolean      @default(false)
+  createdAt    DateTime     @default(now())
+  dishes       Dish[]
+  weeklyMenus  WeeklyMenu[]
 }
 
 model Dish {
   id             String           @id @default(cuid())
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId         String
   name           String
   category       DishCategory
   mealType       DishMealType
@@ -44,7 +49,7 @@ model Dish {
   ingredients    DishIngredient[]
   menuEntries    MenuEntry[]
 
-  @@index([category, mealType, active])
+  @@index([userId, category, mealType, active])
 }
 
 model DishIngredient {
@@ -61,12 +66,14 @@ model DishIngredient {
 
 model WeeklyMenu {
   id        String              @id @default(cuid())
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
   weekStart DateTime            @db.Date
   createdAt DateTime            @default(now())
   entries   MenuEntry[]
   checks    ShoppingListCheck[]
 
-  @@unique([weekStart])
+  @@unique([userId, weekStart])
 }
 
 model MenuEntry {

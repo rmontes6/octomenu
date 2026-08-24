@@ -11,32 +11,34 @@ const menuInclude = {
 
 export type WeeklyMenuWithEntries = Prisma.WeeklyMenuGetPayload<{ include: typeof menuInclude }>;
 
-export async function getWeeklyMenu(weekStart: Date): Promise<WeeklyMenuWithEntries | null> {
-  return prisma.weeklyMenu.findUnique({ where: { weekStart }, include: menuInclude });
+export async function getWeeklyMenu(userId: string, weekStart: Date): Promise<WeeklyMenuWithEntries | null> {
+  return prisma.weeklyMenu.findUnique({ where: { userId_weekStart: { userId, weekStart } }, include: menuInclude });
 }
 
-export async function getWeeklyMenuById(id: string): Promise<WeeklyMenuWithEntries | null> {
-  return prisma.weeklyMenu.findUnique({ where: { id }, include: menuInclude });
+export async function getWeeklyMenuById(userId: string, id: string): Promise<WeeklyMenuWithEntries | null> {
+  const menu = await prisma.weeklyMenu.findUnique({ where: { id }, include: menuInclude });
+  if (!menu || menu.userId !== userId) return null;
+  return menu;
 }
 
 /**
  * Crea el menú de una semana. Si ya existe uno para esa semana, solo lo
  * sustituye cuando `force` es true (borra entradas y checks previos).
  */
-export async function createWeeklyMenu(weekStart: Date, force: boolean): Promise<WeeklyMenuWithEntries> {
-  const existing = await prisma.weeklyMenu.findUnique({ where: { weekStart } });
+export async function createWeeklyMenu(userId: string, weekStart: Date, force: boolean): Promise<WeeklyMenuWithEntries> {
+  const existing = await prisma.weeklyMenu.findUnique({ where: { userId_weekStart: { userId, weekStart } } });
   if (existing && !force) {
     throw new Error("ALREADY_EXISTS");
   }
 
-  const dishes = await prisma.dish.findMany({ where: { active: true } });
+  const dishes = await prisma.dish.findMany({ where: { userId, active: true } });
   const planned = generateWeek(dishes);
 
   const menuId = await prisma.$transaction(async (tx) => {
     if (existing) {
       await tx.weeklyMenu.delete({ where: { id: existing.id } });
     }
-    const menu = await tx.weeklyMenu.create({ data: { weekStart } });
+    const menu = await tx.weeklyMenu.create({ data: { userId, weekStart } });
 
     const idByKey = new Map<string, string>();
     const originals = planned.filter((p) => p.sourceKey === null);
@@ -67,7 +69,7 @@ export async function createWeeklyMenu(weekStart: Date, force: boolean): Promise
     return menu.id;
   });
 
-  const menu = await getWeeklyMenuById(menuId);
+  const menu = await getWeeklyMenuById(userId, menuId);
   if (!menu) throw new Error("No se pudo cargar el menú recién creado");
   return menu;
 }
@@ -79,14 +81,21 @@ export async function createWeeklyMenu(weekStart: Date, force: boolean): Promise
  * elegido pasa a rendir/no rendir 2 tomas, se crea/actualiza/borra en
  * cascada su copia del día siguiente.
  */
-export async function rerollEntry(weeklyMenuId: string, entryId: string): Promise<WeeklyMenuWithEntries> {
+export async function rerollEntry(userId: string, weeklyMenuId: string, entryId: string): Promise<WeeklyMenuWithEntries> {
+  // Comprobación de propiedad antes de tocar nada: entryId/weeklyMenuId por
+  // sí solos no prueban que el menú sea del usuario que llama.
+  const owningMenu = await prisma.weeklyMenu.findUnique({ where: { id: weeklyMenuId }, select: { userId: true } });
+  if (!owningMenu || owningMenu.userId !== userId) {
+    throw new Error("NOT_FOUND");
+  }
+
   const entry = await prisma.menuEntry.findUnique({ where: { id: entryId } });
   if (!entry || entry.weeklyMenuId !== weeklyMenuId) {
     throw new Error("NOT_FOUND");
   }
 
   if (entry.leftoverOfId) {
-    return rerollEntry(weeklyMenuId, entry.leftoverOfId);
+    return rerollEntry(userId, weeklyMenuId, entry.leftoverOfId);
   }
 
   const [allEntries, leftoverCopy, candidates] = await Promise.all([
@@ -94,6 +103,7 @@ export async function rerollEntry(weeklyMenuId: string, entryId: string): Promis
     prisma.menuEntry.findFirst({ where: { leftoverOfId: entry.id } }),
     prisma.dish.findMany({
       where: {
+        userId,
         active: true,
         category: entry.slot,
         OR: [{ mealType: entry.mealType }, { mealType: "AMBAS" }],
@@ -136,7 +146,7 @@ export async function rerollEntry(weeklyMenuId: string, entryId: string): Promis
     }
   });
 
-  const menu = await getWeeklyMenuById(weeklyMenuId);
+  const menu = await getWeeklyMenuById(userId, weeklyMenuId);
   if (!menu) throw new Error("No se pudo recargar el menú");
   return menu;
 }

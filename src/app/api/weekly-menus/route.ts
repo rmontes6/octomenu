@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   }
 
   const weekStart = mondayOf(parseDateOnly(weekStartParam));
-  const menu = await getWeeklyMenu(weekStart);
+  const menu = await getWeeklyMenu(userId, weekStart);
   if (!menu) return NextResponse.json(null);
   return NextResponse.json(menu);
 }
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
   const weekStart = mondayOf(parseDateOnly(parsed.data.weekStart));
 
   try {
-    const menu = await createWeeklyMenu(weekStart, parsed.data.force ?? false);
+    const menu = await createWeeklyMenu(userId, weekStart, parsed.data.force ?? false);
     return NextResponse.json(menu, { status: 201 });
   } catch (err) {
     if (err instanceof Error && err.message === "ALREADY_EXISTS") {

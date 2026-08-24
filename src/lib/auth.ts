@@ -29,7 +29,7 @@ export const authOptions: AuthOptions = {
         const valid = await bcrypt.compare(credentials.password, user.passwordHash);
         if (!valid) return null;
 
-        return { id: user.id, name: user.username };
+        return { id: user.id, name: user.username, isAdmin: user.isAdmin };
       },
     }),
   ],
@@ -37,12 +37,14 @@ export const authOptions: AuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        token.isAdmin = user.isAdmin;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id;
+        session.user.isAdmin = token.isAdmin;
       }
       return session;
     },

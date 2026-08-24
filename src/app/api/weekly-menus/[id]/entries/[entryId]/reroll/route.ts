@@ -9,7 +9,7 @@ export async function POST(_req: NextRequest, { params }: Params) {
   if (!userId) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   try {
-    const menu = await rerollEntry(params.id, params.entryId);
+    const menu = await rerollEntry(userId, params.id, params.entryId);
     return NextResponse.json(menu);
   } catch (err) {
     if (err instanceof Error) {

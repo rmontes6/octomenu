@@ -8,8 +8,8 @@ set -euo pipefail
 #
 # automenu convive en el mismo EC2 que trip2millionaire, que ya ocupa
 # los puertos 80/443 con su propio Caddy: este stack usa su propio
-# Caddy en CADDY_PORT (por defecto 8443) con "tls internal", sin tocar
-# el deploy de trip2millionaire.
+# Caddy en CADDY_PORT (por defecto 8443), de momento sirviendo HTTP
+# plano (sin TLS), sin tocar el deploy de trip2millionaire.
 #
 # Requiere que DEPLOY_HOST y DEPLOY_PATH estén definidos en .env.
 # DEPLOY_HOST debe ser un alias configurado en ~/.ssh/config.
@@ -56,7 +56,7 @@ LOCAL_TAR="$WORKDIR/$TAR_NAME"
 cleanup() { rm -rf "$WORKDIR"; }
 trap cleanup EXIT
 
-NEXTAUTH_URL_REMOTE="https://${PUBLIC_HOST}:${CADDY_PORT}"
+NEXTAUTH_URL_REMOTE="http://${PUBLIC_HOST}:${CADDY_PORT}"
 
 echo "==> Construyendo imagen $IMAGE_REF (NEXTAUTH_URL=${NEXTAUTH_URL_REMOTE})"
 NEXTAUTH_URL="$NEXTAUTH_URL_REMOTE" docker compose build app
@@ -106,4 +106,3 @@ EOF
 
 echo "==> Deploy completado"
 echo "App disponible en: ${NEXTAUTH_URL_REMOTE}"
-echo "(certificado autofirmado: el navegador pedirá aceptar la excepción la primera vez)"

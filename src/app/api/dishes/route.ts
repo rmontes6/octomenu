@@ -23,6 +23,7 @@ export async function GET() {
   if (!userId) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   const dishes = await prisma.dish.findMany({
+    where: { userId },
     include: { ingredients: { orderBy: { order: "asc" } } },
     orderBy: [{ name: "asc" }],
   });
@@ -43,6 +44,7 @@ export async function POST(req: NextRequest) {
   const dish = await prisma.dish.create({
     data: {
       ...data,
+      userId,
       ingredients: {
         create: ingredients.map((ing, i) => ({ ...ing, order: i })),
       },

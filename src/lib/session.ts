@@ -13,3 +13,10 @@ export async function requireUserId(): Promise<string | null> {
   const exists = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
   return exists ? userId : null;
 }
+
+// Se reconsulta en cada llamada en vez de fiarse del claim del JWT, para que
+// revocar el admin surta efecto sin esperar a que expire el token.
+export async function isAdminUser(userId: string): Promise<boolean> {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { isAdmin: true } });
+  return user?.isAdmin ?? false;
+}

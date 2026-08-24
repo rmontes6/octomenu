@@ -27,8 +27,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
   const userId = await requireUserId();
   if (!userId) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
-  const dish = await prisma.dish.findUnique({
-    where: { id: params.id },
+  const dish = await prisma.dish.findFirst({
+    where: { id: params.id, userId },
     include: { ingredients: { orderBy: { order: "asc" } } },
   });
   if (!dish) return NextResponse.json({ error: "Plato no encontrado" }, { status: 404 });
@@ -45,14 +45,15 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   // el plato entero.
   const activeOnly = activeSchema.safeParse(body);
   if (activeOnly.success && body && Object.keys(body).length === 1) {
-    const dish = await prisma.dish
-      .update({
-        where: { id: params.id },
-        data: { active: activeOnly.data.active },
-        include: { ingredients: { orderBy: { order: "asc" } } },
-      })
-      .catch(() => null);
-    if (!dish) return NextResponse.json({ error: "Plato no encontrado" }, { status: 404 });
+    const { count } = await prisma.dish.updateMany({
+      where: { id: params.id, userId },
+      data: { active: activeOnly.data.active },
+    });
+    if (count === 0) return NextResponse.json({ error: "Plato no encontrado" }, { status: 404 });
+    const dish = await prisma.dish.findUnique({
+      where: { id: params.id },
+      include: { ingredients: { orderBy: { order: "asc" } } },
+    });
     return NextResponse.json(dish);
   }
 
@@ -62,6 +63,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   }
 
   const { ingredients, ...data } = parsed.data;
+
+  const owned = await prisma.dish.findFirst({ where: { id: params.id, userId }, select: { id: true } });
+  if (!owned) return NextResponse.json({ error: "Plato no encontrado" }, { status: 404 });
 
   try {
     const dish = await prisma.$transaction(async (tx) => {
@@ -87,6 +91,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 export async function DELETE(_req: NextRequest, { params }: Params) {
   const userId = await requireUserId();
   if (!userId) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+
+  const owned = await prisma.dish.findFirst({ where: { id: params.id, userId }, select: { id: true } });
+  if (!owned) return NextResponse.json({ error: "Plato no encontrado" }, { status: 404 });
 
   try {
     await prisma.dish.delete({ where: { id: params.id } });

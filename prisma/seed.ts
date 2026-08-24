@@ -19,7 +19,7 @@ async function main() {
   const user = await prisma.user.upsert({
     where: { username },
     update: {},
-    create: { username, passwordHash },
+    create: { username, passwordHash, isAdmin: true },
   });
 
   console.log(`Usuario listo: ${user.username} (id ${user.id})`);
