@@ -26,6 +26,16 @@ enum DishSeason {
   AMBAS
 }
 
+enum DishFoodGroup {
+  CARNE
+  PESCADO
+  VERDURA
+  PASTA_ARROZ
+  LEGUMBRE
+  HUEVO
+  OTRO
+}
+
 enum MealSlot {
   COMIDA
   CENA
@@ -49,7 +59,9 @@ model Dish {
   category       DishCategory
   mealType       DishMealType
   season         DishSeason       @default(AMBAS)
+  foodGroup      DishFoodGroup    @default(OTRO)
   yieldsTwoMeals Boolean          @default(false)
+  wantsAcompanamiento Boolean     @default(true)
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
   ingredients    DishIngredient[]

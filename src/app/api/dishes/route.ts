@@ -14,7 +14,9 @@ const dishSchema = z.object({
   category: z.enum(["PLATO_UNICO", "PRIMERO", "SEGUNDO", "ACOMPANAMIENTO"]),
   mealType: z.enum(["COMIDA", "CENA", "AMBAS"]),
   season: z.enum(["VERANO", "INVIERNO", "AMBAS"]).default("AMBAS"),
+  foodGroup: z.enum(["CARNE", "PESCADO", "VERDURA", "PASTA_ARROZ", "LEGUMBRE", "HUEVO", "OTRO"]).default("OTRO"),
   yieldsTwoMeals: z.boolean().default(false),
+  wantsAcompanamiento: z.boolean().default(true),
   ingredients: z.array(ingredientSchema).default([]),
 });
 

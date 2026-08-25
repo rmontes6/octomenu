@@ -131,7 +131,9 @@ export async function createWeeklyMenu(
  * sin repetir ningún plato ya usado esa semana. Si el hueco es una copia de
  * sobras, se reelige la entrada original de la que proviene. Si el plato
  * elegido pasa a rendir/no rendir 2 tomas, se crea/actualiza/borra en
- * cascada su copia del día siguiente.
+ * cascada su copia del día siguiente. Si el hueco reroleado es un segundo
+ * plato, además se sincroniza la guarnición de ese día con la preferencia
+ * del nuevo plato elegido (ver más abajo).
  */
 export async function rerollEntry(userId: string, weeklyMenuId: string, entryId: string): Promise<WeeklyMenuWithEntries> {
   // Comprobación de propiedad antes de tocar nada: entryId/weeklyMenuId por
@@ -149,18 +151,26 @@ export async function rerollEntry(userId: string, weeklyMenuId: string, entryId:
   }
 
   const season = seasonOf(owningMenu.weekStart);
-  const [allEntries, leftoverCopy, candidates] = await Promise.all([
+  const [allEntries, leftoverCopy] = await Promise.all([
     prisma.menuEntry.findMany({ where: { weeklyMenuId } }),
     prisma.menuEntry.findFirst({ where: { leftoverOfId: entry.id } }),
-    prisma.dish.findMany({
-      where: {
-        userId,
-        category: entry.slot,
-        OR: [{ mealType: entry.mealType }, { mealType: "AMBAS" }],
-        AND: { OR: [{ season }, { season: "AMBAS" }] },
-      },
-    }),
   ]);
+
+  // Si se reroletea un segundo y ese día/franja no tiene un primero, el
+  // segundo está "solo": igual que en generación, solo puede salir uno que
+  // lleve guarnición (ver DishesClient / generateWeek).
+  const hasPrimeroPartner = allEntries.some(
+    (e) => e.dayOfWeek === entry.dayOfWeek && e.mealType === entry.mealType && e.slot === "PRIMERO"
+  );
+  const candidates = await prisma.dish.findMany({
+    where: {
+      userId,
+      category: entry.slot,
+      OR: [{ mealType: entry.mealType }, { mealType: "AMBAS" }],
+      AND: { OR: [{ season }, { season: "AMBAS" }] },
+      ...(entry.slot === "SEGUNDO" && !hasPrimeroPartner ? { wantsAcompanamiento: true } : {}),
+    },
+  });
 
   const usedDishIds = new Set(
     allEntries.filter((e) => e.id !== entry.id && e.id !== leftoverCopy?.id).map((e) => e.dishId)
@@ -175,6 +185,28 @@ export async function rerollEntry(userId: string, weeklyMenuId: string, entryId:
   const day = entry.dayOfWeek;
   const mealType = entry.mealType;
   const slot = entry.slot;
+
+  // Sincronización de la guarnición: solo aplica al rerolear un segundo.
+  // La guarnición de ese día es la entrada ACOMPANAMIENTO co-ubicada en el
+  // mismo día/franja (no hay vínculo explícito en el modelo, se infiere por
+  // posición, igual que hace generateWeek al construirla).
+  const existingAcomp =
+    slot === "SEGUNDO"
+      ? allEntries.find((e) => e.dayOfWeek === day && e.mealType === mealType && e.slot === "ACOMPANAMIENTO")
+      : undefined;
+  let newAcomp: { id: string } | null = null;
+  if (slot === "SEGUNDO" && newDish.wantsAcompanamiento && !existingAcomp) {
+    const acompCandidates = await prisma.dish.findMany({
+      where: {
+        userId,
+        category: "ACOMPANAMIENTO",
+        OR: [{ mealType }, { mealType: "AMBAS" }],
+        AND: { OR: [{ season }, { season: "AMBAS" }] },
+      },
+    });
+    const acompPool = acompCandidates.filter((d) => !usedDishIds.has(d.id));
+    newAcomp = acompPool.length > 0 ? acompPool[Math.floor(Math.random() * acompPool.length)] : null;
+  }
 
   await prisma.$transaction(async (tx) => {
     await tx.menuEntry.update({ where: { id: entry.id }, data: { dishId: newDish.id } });
@@ -194,6 +226,16 @@ export async function rerollEntry(userId: string, weeklyMenuId: string, entryId:
       }
     } else if (leftoverCopy) {
       await tx.menuEntry.delete({ where: { id: leftoverCopy.id } });
+    }
+
+    if (slot === "SEGUNDO") {
+      if (newDish.wantsAcompanamiento && !existingAcomp && newAcomp) {
+        await tx.menuEntry.create({
+          data: { weeklyMenuId, dayOfWeek: day, mealType, slot: "ACOMPANAMIENTO", dishId: newAcomp.id },
+        });
+      } else if (!newDish.wantsAcompanamiento && existingAcomp) {
+        await tx.menuEntry.delete({ where: { id: existingAcomp.id } });
+      }
     }
   });
 

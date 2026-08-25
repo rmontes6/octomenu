@@ -1,11 +1,13 @@
-import { DishCategory, DishMealType, DishSeason, MealSlot } from "@prisma/client";
+import { DishCategory, DishFoodGroup, DishMealType, DishSeason, MealSlot } from "@prisma/client";
 
 export type DishForGeneration = {
   id: string;
   category: DishCategory;
   mealType: DishMealType;
   season: DishSeason;
+  foodGroup: DishFoodGroup;
   yieldsTwoMeals: boolean;
+  wantsAcompanamiento: boolean;
 };
 
 export type GenerateWeekOptions = {
@@ -66,7 +68,25 @@ function pickPreferringFresh<T extends { id: string }>(
   return pickRandom(fresh.length > 0 ? fresh : pool, rng);
 }
 
-type CarryOver = { slot: DishCategory; dishId: string; sourceKey: string };
+/**
+ * Igual que `pickPreferringFresh`, pero antes reduce `pool` al subconjunto de
+ * grupos de alimento menos usados hasta ahora esta semana (nunca vacío si
+ * `pool` no lo está), para dar variedad de carne/pescado/verdura/pasta... a
+ * lo largo de la semana sin prohibir nada.
+ */
+function pickDiverse<T extends { id: string; foodGroup: string }>(
+  pool: T[],
+  foodGroupCounts: Record<string, number>,
+  recentDishIds: Set<string>,
+  rng: () => number
+): T | undefined {
+  if (pool.length === 0) return undefined;
+  const minCount = Math.min(...pool.map((d) => foodGroupCounts[d.foodGroup] ?? 0));
+  const diverse = pool.filter((d) => (foodGroupCounts[d.foodGroup] ?? 0) === minCount);
+  return pickPreferringFresh(diverse, recentDishIds, rng);
+}
+
+type CarryOver = { slot: DishCategory; dishId: string; sourceKey: string; foodGroup: DishFoodGroup };
 
 /**
  * Genera una semana completa a partir del catálogo de platos activos.
@@ -86,6 +106,11 @@ export function generateWeek(dishes: DishForGeneration[], options: GenerateWeekO
   const { rng = Math.random, recentDishIds = new Set<string>(), season, excludedSlots = new Set<string>() } = options;
   const entries: PlannedEntry[] = [];
   const usedDishIds = new Set<string>();
+  // Cuenta de platos "principales" (único/primero/segundo) elegidos por grupo
+  // de alimento a lo largo de toda la semana; las guarniciones no cuentan
+  // (ver pickDiverse). Se usa para preferir blandamente los grupos menos
+  // repetidos, nunca para prohibir uno.
+  const foodGroupCounts: Record<string, number> = {};
   let carryOver: Partial<Record<MealSlot, CarryOver>> = {};
 
   function pool(category: DishCategory, mealType: MealSlot) {
@@ -110,6 +135,9 @@ export function generateWeek(dishes: DishForGeneration[], options: GenerateWeekO
         // Plato que "rinde 2 tomas": se repite en la misma franja del día
         // siguiente sin volver a tirar el dado, y no se re-propaga más allá.
         entries.push({ dayOfWeek: day, mealType, slot: carried.slot, dishId: carried.dishId, sourceKey: carried.sourceKey });
+        if (carried.slot !== "ACOMPANAMIENTO") {
+          foodGroupCounts[carried.foodGroup] = (foodGroupCounts[carried.foodGroup] ?? 0) + 1;
+        }
         continue;
       }
 
@@ -117,6 +145,10 @@ export function generateWeek(dishes: DishForGeneration[], options: GenerateWeekO
       const primeroPool = pool("PRIMERO", mealType);
       const segundoPool = pool("SEGUNDO", mealType);
       const acompPool = pool("ACOMPANAMIENTO", mealType);
+      // Un segundo que no lleva guarnición nunca puede quedar solo en el
+      // hueco (necesita un primero que lo acompañe), así que el pool
+      // elegible para "segundo solo" es un subconjunto del de segundos.
+      const segundoAlonePool = segundoPool.filter((d) => d.wantsAcompanamiento);
 
       const canUnico = unicoPool.length > 0;
       const canPrimeroSegundo = primeroPool.length > 0 && segundoPool.length > 0;
@@ -130,7 +162,7 @@ export function generateWeek(dishes: DishForGeneration[], options: GenerateWeekO
         structure = "PRIMERO_SEGUNDO";
       } else if (primeroPool.length > 0) {
         structure = "PRIMERO_ONLY";
-      } else if (segundoPool.length > 0) {
+      } else if (segundoAlonePool.length > 0) {
         structure = "SEGUNDO_ONLY";
       }
 
@@ -138,23 +170,29 @@ export function generateWeek(dishes: DishForGeneration[], options: GenerateWeekO
 
       const chosen: { slot: DishCategory; dish: DishForGeneration }[] = [];
       if (structure === "UNICO") {
-        chosen.push({ slot: "PLATO_UNICO", dish: pickPreferringFresh(unicoPool, recentDishIds, rng)! });
+        chosen.push({ slot: "PLATO_UNICO", dish: pickDiverse(unicoPool, foodGroupCounts, recentDishIds, rng)! });
       } else if (structure === "PRIMERO_SEGUNDO") {
-        chosen.push({ slot: "PRIMERO", dish: pickPreferringFresh(primeroPool, recentDishIds, rng)! });
-        chosen.push({ slot: "SEGUNDO", dish: pickPreferringFresh(segundoPool, recentDishIds, rng)! });
+        chosen.push({ slot: "PRIMERO", dish: pickDiverse(primeroPool, foodGroupCounts, recentDishIds, rng)! });
+        chosen.push({ slot: "SEGUNDO", dish: pickDiverse(segundoPool, foodGroupCounts, recentDishIds, rng)! });
       } else if (structure === "PRIMERO_ONLY") {
-        chosen.push({ slot: "PRIMERO", dish: pickPreferringFresh(primeroPool, recentDishIds, rng)! });
+        chosen.push({ slot: "PRIMERO", dish: pickDiverse(primeroPool, foodGroupCounts, recentDishIds, rng)! });
       } else if (structure === "SEGUNDO_ONLY") {
-        chosen.push({ slot: "SEGUNDO", dish: pickPreferringFresh(segundoPool, recentDishIds, rng)! });
+        chosen.push({ slot: "SEGUNDO", dish: pickDiverse(segundoAlonePool, foodGroupCounts, recentDishIds, rng)! });
       }
 
-      for (const { dish } of chosen) usedDishIds.add(dish.id);
+      for (const { dish } of chosen) {
+        usedDishIds.add(dish.id);
+        foodGroupCounts[dish.foodGroup] = (foodGroupCounts[dish.foodGroup] ?? 0) + 1;
+      }
 
       // La guarnición solo se empareja con un segundo plato: con la estructura completa
-      // (primero + segundo, opcional ~50%) o con segundo-solo (obligatoria si el catálogo
-      // tiene alguna disponible — un segundo nunca puede quedar solo sin más). Nunca con
-      // primero-solo (no hay segundo al que acompañar) ni con plato único.
-      const wantsAcomp = structure === "PRIMERO_SEGUNDO" ? rng() < 0.5 : structure === "SEGUNDO_ONLY";
+      // (primero + segundo) o con segundo-solo. Nunca con primero-solo (no hay segundo
+      // al que acompañar) ni con plato único. A diferencia de antes, ya no es un sorteo:
+      // depende por completo de si el segundo elegido lleva guarnición (`wantsAcompanamiento`)
+      // — un segundo sin guarnición nunca la lleva, y por eso `segundoAlonePool` ya lo
+      // excluye como candidato a "segundo solo" más arriba.
+      const segundoChosen = chosen.find((c) => c.slot === "SEGUNDO");
+      const wantsAcomp = segundoChosen ? segundoChosen.dish.wantsAcompanamiento : false;
       if (wantsAcomp && acompPool.length > 0) {
         const acomp = pickPreferringFresh(acompPool, recentDishIds, rng)!;
         usedDishIds.add(acomp.id);
@@ -166,7 +204,7 @@ export function generateWeek(dishes: DishForGeneration[], options: GenerateWeekO
         entries.push({ dayOfWeek: day, mealType, slot, dishId: dish.id, sourceKey: null });
 
         if (dish.yieldsTwoMeals && day + 1 < DAYS) {
-          nextCarryOver[mealType] = { slot, dishId: dish.id, sourceKey: k };
+          nextCarryOver[mealType] = { slot, dishId: dish.id, sourceKey: k, foodGroup: dish.foodGroup };
         }
       }
     }

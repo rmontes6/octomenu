@@ -3,7 +3,16 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import clsx from "@/lib/clsx";
-import { CATEGORY_LABELS, CATEGORY_OPTIONS, MEAL_TYPE_LABELS, MEAL_TYPE_OPTIONS, SEASON_LABELS, SEASON_OPTIONS } from "@/lib/labels";
+import {
+  CATEGORY_LABELS,
+  CATEGORY_OPTIONS,
+  MEAL_TYPE_LABELS,
+  MEAL_TYPE_OPTIONS,
+  SEASON_LABELS,
+  SEASON_OPTIONS,
+  FOOD_GROUP_LABELS,
+  FOOD_GROUP_OPTIONS,
+} from "@/lib/labels";
 
 type Ingredient = { id?: string; name: string; quantity: number | null; unit: string | null };
 
@@ -13,7 +22,9 @@ type Dish = {
   category: string;
   mealType: string;
   season: string;
+  foodGroup: string;
   yieldsTwoMeals: boolean;
+  wantsAcompanamiento: boolean;
   ingredients: Ingredient[];
 };
 
@@ -22,7 +33,9 @@ type FormState = {
   category: string;
   mealType: string;
   season: string;
+  foodGroup: string;
   yieldsTwoMeals: boolean;
+  wantsAcompanamiento: boolean;
   ingredients: Ingredient[];
 };
 
@@ -31,7 +44,9 @@ const EMPTY_FORM: FormState = {
   category: "PLATO_UNICO",
   mealType: "AMBAS",
   season: "AMBAS",
+  foodGroup: "OTRO",
   yieldsTwoMeals: false,
+  wantsAcompanamiento: true,
   ingredients: [{ name: "", quantity: null, unit: null }],
 };
 
@@ -83,7 +98,9 @@ export default function DishesClient() {
       category: dish.category,
       mealType: dish.mealType,
       season: dish.season,
+      foodGroup: dish.foodGroup,
       yieldsTwoMeals: dish.yieldsTwoMeals,
+      wantsAcompanamiento: dish.wantsAcompanamiento,
       ingredients: dish.ingredients.length > 0 ? dish.ingredients : [{ name: "", quantity: null, unit: null }],
     });
     setFormOpen(true);
@@ -249,6 +266,21 @@ export default function DishesClient() {
                 ))}
               </select>
             </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-ink-secondary dark:text-ink-dsecondary">Grupo</label>
+              <select
+                value={form.foodGroup}
+                onChange={(e) => setForm((f) => ({ ...f, foodGroup: e.target.value }))}
+                className="input"
+              >
+                {FOOD_GROUP_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-4">
@@ -261,6 +293,17 @@ export default function DishesClient() {
               />
               Rinde para 2 tomas (se repite al día siguiente en la misma franja)
             </label>
+            {form.category === "SEGUNDO" && (
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={form.wantsAcompanamiento}
+                  onChange={(e) => setForm((f) => ({ ...f, wantsAcompanamiento: e.target.checked }))}
+                  className="h-4 w-4 rounded border-black/20 text-brand focus:ring-brand/30 dark:border-white/20"
+                />
+                Lleva guarnición (si no, nunca lleva y siempre necesita un primero)
+              </label>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -379,6 +422,16 @@ export default function DishesClient() {
                 {dish.season !== "AMBAS" && (
                   <span className="rounded-full bg-black/10 px-2 py-0.5 text-xs font-medium text-ink-muted dark:bg-white/10">
                     {SEASON_LABELS[dish.season]}
+                  </span>
+                )}
+                {dish.foodGroup !== "OTRO" && (
+                  <span className="rounded-full bg-black/10 px-2 py-0.5 text-xs font-medium text-ink-muted dark:bg-white/10">
+                    {FOOD_GROUP_LABELS[dish.foodGroup]}
+                  </span>
+                )}
+                {dish.category === "SEGUNDO" && !dish.wantsAcompanamiento && (
+                  <span className="rounded-full bg-black/10 px-2 py-0.5 text-xs font-medium text-ink-muted dark:bg-white/10">
+                    Sin guarnición
                   </span>
                 )}
               </div>
