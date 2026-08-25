@@ -44,6 +44,52 @@ export async function pruneOldShoppingListChecks(userId: string): Promise<void> 
   await prisma.shoppingListCheck.deleteMany({ where: { weeklyMenu: { userId, weekStart: { lt: cutoff } } } });
 }
 
+/**
+ * Borra las exclusiones (`ExcludedSlot`) de un usuario anteriores a la
+ * semana pasada. Mismo corte que `pruneOldWeeklyMenus`: esta tabla es
+ * deliberadamente independiente de `WeeklyMenu` (el usuario puede marcar
+ * exclusiones antes de generar por primera vez, cuando ese `WeeklyMenu` ni
+ * siquiera existe), así que no hereda su cascade y necesita su propia
+ * limpieza con el mismo criterio de retención.
+ */
+async function pruneOldExcludedSlots(userId: string): Promise<void> {
+  const cutoff = addDaysUTC(mondayOf(new Date()), -7);
+  await prisma.excludedSlot.deleteMany({ where: { userId, weekStart: { lt: cutoff } } });
+}
+
+export async function getExcludedSlots(
+  userId: string,
+  weekStart: Date
+): Promise<{ dayOfWeek: number; mealType: MealSlot }[]> {
+  await pruneOldExcludedSlots(userId);
+  return prisma.excludedSlot.findMany({
+    where: { userId, weekStart },
+    select: { dayOfWeek: true, mealType: true },
+  });
+}
+
+/**
+ * Sustituye el conjunto completo de exclusiones de una semana (borra y
+ * recrea dentro de una transacción, mismo patrón que ya usan las rutas de
+ * `dishes/[id]` para reemplazar la lista de ingredientes) — el cliente
+ * siempre manda el `Set` resultante entero tras cada cambio, así que no
+ * hace falta diffear.
+ */
+export async function setExcludedSlots(
+  userId: string,
+  weekStart: Date,
+  slots: { dayOfWeek: number; mealType: MealSlot }[]
+): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    await tx.excludedSlot.deleteMany({ where: { userId, weekStart } });
+    if (slots.length > 0) {
+      await tx.excludedSlot.createMany({
+        data: slots.map((s) => ({ userId, weekStart, dayOfWeek: s.dayOfWeek, mealType: s.mealType })),
+      });
+    }
+  });
+}
+
 export async function getWeeklyMenu(userId: string, weekStart: Date): Promise<WeeklyMenuWithEntries | null> {
   await pruneOldWeeklyMenus(userId);
   return prisma.weeklyMenu.findUnique({ where: { userId_weekStart: { userId, weekStart } }, include: menuInclude });
@@ -57,17 +103,16 @@ export async function getWeeklyMenuById(userId: string, id: string): Promise<Wee
 
 /**
  * Crea el menú de una semana. Si ya existe uno para esa semana, solo lo
- * sustituye cuando `force` es true (borra entradas y checks previos).
- * `excludedSlots` (claves `${dayOfWeek}-${mealType}`) son huecos que el
- * usuario ha marcado a propósito para no generar nada (p. ej. "como fuera
- * ese día"): no persisten en BD, solo se usan como entrada puntual para esta
- * generación en concreto.
+ * sustituye cuando `force` es true (borra entradas y checks previos). Los
+ * huecos que el usuario ha marcado a propósito para no generar nada (p. ej.
+ * "como fuera ese día") se leen de `ExcludedSlot` — es la única fuente:
+ * el cliente los persiste al vuelo con cada cambio (`setExcludedSlots`) en
+ * vez de mandarlos solo en el momento de generar.
  */
 export async function createWeeklyMenu(
   userId: string,
   weekStart: Date,
-  force: boolean,
-  excludedSlots: Set<string> = new Set()
+  force: boolean
 ): Promise<WeeklyMenuWithEntries> {
   await pruneOldWeeklyMenus(userId);
 
@@ -76,14 +121,16 @@ export async function createWeeklyMenu(
     throw new Error("ALREADY_EXISTS");
   }
 
-  const [dishes, previousWeek] = await Promise.all([
+  const [dishes, previousWeek, excludedSlotRows] = await Promise.all([
     prisma.dish.findMany({ where: { userId } }),
     prisma.weeklyMenu.findUnique({
       where: { userId_weekStart: { userId, weekStart: addDaysUTC(weekStart, -7) } },
       include: { entries: true },
     }),
+    getExcludedSlots(userId, weekStart),
   ]);
   const recentDishIds = new Set(previousWeek?.entries.map((e) => e.dishId) ?? []);
+  const excludedSlots = new Set(excludedSlotRows.map((s) => `${s.dayOfWeek}-${s.mealType}`));
   const planned = generateWeek(dishes, { recentDishIds, season: seasonOf(weekStart), excludedSlots });
 
   const menuId = await prisma.$transaction(async (tx) => {

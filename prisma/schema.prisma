@@ -49,6 +49,7 @@ model User {
   createdAt    DateTime     @default(now())
   dishes       Dish[]
   weeklyMenus  WeeklyMenu[]
+  excludedSlots ExcludedSlot[]
 }
 
 model Dish {
@@ -109,6 +110,24 @@ model MenuEntry {
 
   @@unique([weeklyMenuId, dayOfWeek, mealType, slot])
   @@index([weeklyMenuId])
+}
+
+// Huecos que el usuario ha marcado a propósito para no generar nada (p. ej.
+// "como fuera ese día"). Deliberadamente sin relación con WeeklyMenu: el
+// usuario debe poder marcarlos antes de generar el menú por primera vez,
+// cuando ese WeeklyMenu ni siquiera existe todavía. Por eso necesita su
+// propia limpieza (pruneOldExcludedSlots) en vez de heredar el cascade de
+// WeeklyMenu.
+model ExcludedSlot {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  weekStart DateTime @db.Date
+  dayOfWeek Int
+  mealType  MealSlot
+
+  @@unique([userId, weekStart, dayOfWeek, mealType])
+  @@index([userId, weekStart])
 }
 
 model ShoppingListCheck {

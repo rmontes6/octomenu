@@ -67,6 +67,27 @@ function defaultExcludedSlots(weekStartStr: string): Set<string> {
   return slots;
 }
 
+function slotsToPayload(slots: Set<string>): { dayOfWeek: number; mealType: "COMIDA" | "CENA" }[] {
+  return [...slots].map((key) => {
+    const [day, mealType] = key.split("-");
+    return { dayOfWeek: Number(day), mealType: mealType as "COMIDA" | "CENA" };
+  });
+}
+
+/**
+ * Persiste el conjunto completo de exclusiones de una semana. Se manda
+ * siempre el `Set` entero (no un diff) porque el endpoint sustituye la
+ * fila por fila de golpe (ver `setExcludedSlots` en `menuService.ts`).
+ */
+async function persistExcludedSlots(weekStartStr: string, slots: Set<string>): Promise<void> {
+  const res = await fetch("/api/weekly-menus/excluded-slots", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ weekStart: weekStartStr, slots: slotsToPayload(slots) }),
+  });
+  if (!res.ok) throw new Error("No se pudo guardar la exclusión");
+}
+
 export default function MenuClient() {
   const router = useRouter();
   const [weekStart, setWeekStart] = useState<Date>(() => mondayOf(new Date()));
@@ -116,12 +137,36 @@ export default function MenuClient() {
   useEffect(() => {
     // La edición solo tiene sentido en la semana en curso: al cambiar de
     // semana se sale del modo edición y se cierran los paneles abiertos.
-    // Las exclusiones también son por semana: no tiene sentido arrastrar
-    // "como fuera el viernes" de una semana a otra.
     setEditMode(false);
     setMovingId(null);
     setAddingSlot(null);
-    setExcludedSlots(defaultExcludedSlots(weekStartStr));
+
+    let cancelled = false;
+    fetch(`/api/weekly-menus/excluded-slots?weekStart=${weekStartStr}`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((rows: { dayOfWeek: number; mealType: "COMIDA" | "CENA" }[]) => {
+        if (cancelled) return;
+        if (rows.length > 0) {
+          // Ya hay exclusiones guardadas para esta semana (manuales o de
+          // una visita anterior que ya sembró el default): son la única
+          // fuente de verdad, no se vuelven a mezclar con el default.
+          setExcludedSlots(new Set(rows.map((r) => `${r.dayOfWeek}-${r.mealType}`)));
+        } else {
+          // Semana nunca tocada: se pinta el default de siempre (fin de
+          // semana + días pasados) y se persiste de inmediato, para que
+          // deje de ser memoria efímera y sobreviva a navegar fuera de
+          // /menu (ver el bug reportado: exclusiones manuales que se
+          // perdían al volver de "Lista de compra").
+          const defaults = defaultExcludedSlots(weekStartStr);
+          setExcludedSlots(defaults);
+          persistExcludedSlots(weekStartStr, defaults).catch(() => {});
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
   }, [weekStartStr]);
 
   useEffect(() => {
@@ -142,10 +187,6 @@ export default function MenuClient() {
         body: JSON.stringify({
           weekStart: weekStartStr,
           force: !!menu,
-          excludedSlots: [...excludedSlots].map((key) => {
-            const [day, mealType] = key.split("-");
-            return { dayOfWeek: Number(day), mealType };
-          }),
         }),
       });
       if (!res.ok) {
@@ -260,14 +301,17 @@ export default function MenuClient() {
     }
   }
 
-  function toggleExcluded(day: number, mealType: "COMIDA" | "CENA") {
+  async function toggleExcluded(day: number, mealType: "COMIDA" | "CENA") {
     const key = `${day}-${mealType}`;
-    setExcludedSlots((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+    const next = new Set(excludedSlots);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    setExcludedSlots(next);
+    try {
+      await persistExcludedSlots(weekStartStr, next);
+    } catch {
+      setError("No se pudo guardar la exclusión");
+    }
   }
 
   function entriesFor(day: number, mealType: "COMIDA" | "CENA") {
