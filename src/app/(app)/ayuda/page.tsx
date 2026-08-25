@@ -28,7 +28,8 @@ const SECTIONS: { title: string; body: React.ReactNode }[] = [
           </li>
           <li>
             <strong>Lleva guarnición</strong> (solo en segundos platos): si lo desmarcas, ese segundo nunca se
-            acompaña de guarnición y solo puede salir junto a un primero, nunca solo en el hueco.
+            acompaña de guarnición. Esto no cambia lo demás: todo segundo, lleve o no guarnición, sale siempre
+            acompañado de un primero — nunca solo en el hueco.
           </li>
         </ul>
       </>
@@ -41,11 +42,17 @@ const SECTIONS: { title: string; body: React.ReactNode }[] = [
         <p>Para cada comida y cena de la semana, el generador arma uno de estos huecos, según lo que tengas en el catálogo:</p>
         <ul className="list-disc space-y-1 pl-5">
           <li>Un plato único, o</li>
-          <li>Primer plato + segundo plato (con guarnición si el segundo la lleva y el catálogo tiene alguna) — si ese día caben tanto un plato único como esta combinación, se sortea al 50% entre las dos, o</li>
-          <li>Solo un segundo plato con guarnición, si no hay primero disponible ese día (y ese segundo admite ir solo), o</li>
-          <li>Solo un primer plato, si no hay ningún segundo que encaje, o</li>
-          <li>El hueco se queda vacío, si el catálogo no da para más.</li>
+          <li>
+            Primer plato + segundo plato, siempre los dos juntos — un primero o un segundo nunca salen solos. Si
+            ese día caben tanto un plato único como esta combinación, se sortea al 50% entre las dos.
+          </li>
+          <li>
+            El hueco se queda vacío si el catálogo no da para ninguna de las dos (p. ej. no queda ningún segundo
+            disponible ese día). Un primero que por sí solo ya sea una comida completa (un potaje, unas lentejas)
+            debería darse de alta como plato único en vez de como primero.
+          </li>
         </ul>
+        <p>Dentro de la combinación primero + segundo, la guarnición depende del segundo elegido (ver &ldquo;Lleva guarnición&rdquo; arriba): se añade si el catálogo tiene alguna disponible, y si no, no.</p>
         <p>
           Dentro de una misma semana nunca se repite un plato (salvo la copia automática de &ldquo;rinde 2
           tomas&rdquo;, que es el mismo plato a propósito) — esta es una regla estricta, aunque el catálogo se

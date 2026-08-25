@@ -145,25 +145,22 @@ export function generateWeek(dishes: DishForGeneration[], options: GenerateWeekO
       const primeroPool = pool("PRIMERO", mealType);
       const segundoPool = pool("SEGUNDO", mealType);
       const acompPool = pool("ACOMPANAMIENTO", mealType);
-      // Un segundo que no lleva guarnición nunca puede quedar solo en el
-      // hueco (necesita un primero que lo acompañe), así que el pool
-      // elegible para "segundo solo" es un subconjunto del de segundos.
-      const segundoAlonePool = segundoPool.filter((d) => d.wantsAcompanamiento);
 
       const canUnico = unicoPool.length > 0;
       const canPrimeroSegundo = primeroPool.length > 0 && segundoPool.length > 0;
 
-      let structure: "UNICO" | "PRIMERO_SEGUNDO" | "PRIMERO_ONLY" | "SEGUNDO_ONLY" | null = null;
+      // Solo dos estructuras posibles: plato único, o primero + segundo
+      // siempre juntos. Un primero o un segundo nunca salen solos — si el
+      // catálogo no da para completar la pareja, el hueco se deja vacío
+      // en vez de degradar a "el que quede solo" (un primero contundente
+      // que se baste por sí solo debería darse de alta como plato único).
+      let structure: "UNICO" | "PRIMERO_SEGUNDO" | null = null;
       if (canUnico && canPrimeroSegundo) {
         structure = rng() < 0.5 ? "UNICO" : "PRIMERO_SEGUNDO";
       } else if (canUnico) {
         structure = "UNICO";
       } else if (canPrimeroSegundo) {
         structure = "PRIMERO_SEGUNDO";
-      } else if (primeroPool.length > 0) {
-        structure = "PRIMERO_ONLY";
-      } else if (segundoAlonePool.length > 0) {
-        structure = "SEGUNDO_ONLY";
       }
 
       if (!structure) continue; // no hay platos disponibles para esta franja: se deja vacía
@@ -174,10 +171,6 @@ export function generateWeek(dishes: DishForGeneration[], options: GenerateWeekO
       } else if (structure === "PRIMERO_SEGUNDO") {
         chosen.push({ slot: "PRIMERO", dish: pickDiverse(primeroPool, foodGroupCounts, recentDishIds, rng)! });
         chosen.push({ slot: "SEGUNDO", dish: pickDiverse(segundoPool, foodGroupCounts, recentDishIds, rng)! });
-      } else if (structure === "PRIMERO_ONLY") {
-        chosen.push({ slot: "PRIMERO", dish: pickDiverse(primeroPool, foodGroupCounts, recentDishIds, rng)! });
-      } else if (structure === "SEGUNDO_ONLY") {
-        chosen.push({ slot: "SEGUNDO", dish: pickDiverse(segundoAlonePool, foodGroupCounts, recentDishIds, rng)! });
       }
 
       for (const { dish } of chosen) {
@@ -185,12 +178,9 @@ export function generateWeek(dishes: DishForGeneration[], options: GenerateWeekO
         foodGroupCounts[dish.foodGroup] = (foodGroupCounts[dish.foodGroup] ?? 0) + 1;
       }
 
-      // La guarnición solo se empareja con un segundo plato: con la estructura completa
-      // (primero + segundo) o con segundo-solo. Nunca con primero-solo (no hay segundo
-      // al que acompañar) ni con plato único. A diferencia de antes, ya no es un sorteo:
-      // depende por completo de si el segundo elegido lleva guarnición (`wantsAcompanamiento`)
-      // — un segundo sin guarnición nunca la lleva, y por eso `segundoAlonePool` ya lo
-      // excluye como candidato a "segundo solo" más arriba.
+      // La guarnición solo se empareja con el segundo de un "primero + segundo" (nunca
+      // con un plato único, y ya no existe la estructura "segundo solo"). Depende por
+      // completo de si ese segundo lleva guarnición (`wantsAcompanamiento`), no es un sorteo.
       const segundoChosen = chosen.find((c) => c.slot === "SEGUNDO");
       const wantsAcomp = segundoChosen ? segundoChosen.dish.wantsAcompanamiento : false;
       if (wantsAcomp && acompPool.length > 0) {

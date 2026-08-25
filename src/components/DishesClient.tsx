@@ -302,7 +302,7 @@ export default function DishesClient() {
                   onChange={(e) => setForm((f) => ({ ...f, wantsAcompanamiento: e.target.checked }))}
                   className="h-4 w-4 rounded border-black/20 text-brand focus:ring-brand/30 dark:border-white/20"
                 />
-                Lleva guarnición (si no, nunca lleva y siempre necesita un primero)
+                Lleva guarnición (si el catálogo tiene alguna disponible)
               </label>
             )}
           </div>
