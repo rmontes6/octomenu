@@ -41,6 +41,32 @@ const MEAL_TYPE_SHORT: Record<"COMIDA" | "CENA", string> = { COMIDA: "Comida", C
 // sí va a comer en casa.
 const DEFAULT_EXCLUDED_SLOTS = new Set(["4-CENA", "5-COMIDA", "5-CENA", "6-COMIDA", "6-CENA"]);
 
+/** "Hoy" como índice 0=lunes..6=domingo (mismo criterio UTC que `mondayOf`). */
+function todayIndex(): number {
+  const d = new Date().getUTCDay(); // 0=domingo..6=sábado
+  return d === 0 ? 6 : d - 1;
+}
+
+/**
+ * Exclusiones por defecto al entrar en una semana: el fin de semana (ver
+ * `DEFAULT_EXCLUDED_SLOTS`) y, solo si `weekStartStr` es la semana en curso,
+ * también cualquier día ya pasado (p. ej. generar en martes no debería
+ * plantearse el lunes). El día de hoy nunca se pre-excluye: no hay forma
+ * fiable de saber si ya has comido o no sin meternos en franjas horarias.
+ * Sigue siendo un punto de partida, no una restricción: el usuario puede
+ * desmarcarlo con el 🚫 si de verdad quiere rellenar un día ya pasado.
+ */
+function defaultExcludedSlots(weekStartStr: string): Set<string> {
+  const slots = new Set(DEFAULT_EXCLUDED_SLOTS);
+  if (weekStartStr === formatDateOnly(mondayOf(new Date()))) {
+    for (let day = 0; day < todayIndex(); day++) {
+      slots.add(`${day}-COMIDA`);
+      slots.add(`${day}-CENA`);
+    }
+  }
+  return slots;
+}
+
 export default function MenuClient() {
   const router = useRouter();
   const [weekStart, setWeekStart] = useState<Date>(() => mondayOf(new Date()));
@@ -58,7 +84,7 @@ export default function MenuClient() {
   const [addDishId, setAddDishId] = useState("");
   const [addBusy, setAddBusy] = useState(false);
   const [editMode, setEditMode] = useState(false);
-  const [excludedSlots, setExcludedSlots] = useState<Set<string>>(() => new Set(DEFAULT_EXCLUDED_SLOTS));
+  const [excludedSlots, setExcludedSlots] = useState<Set<string>>(() => defaultExcludedSlots(formatDateOnly(weekStart)));
   const [error, setError] = useState<string | null>(null);
 
   const weekStartStr = formatDateOnly(weekStart);
@@ -95,7 +121,7 @@ export default function MenuClient() {
     setEditMode(false);
     setMovingId(null);
     setAddingSlot(null);
-    setExcludedSlots(new Set(DEFAULT_EXCLUDED_SLOTS));
+    setExcludedSlots(defaultExcludedSlots(weekStartStr));
   }, [weekStartStr]);
 
   useEffect(() => {
@@ -264,10 +290,7 @@ export default function MenuClient() {
 
   // "Hoy" se resalta comparando con el día de la semana en curso (mismo
   // criterio UTC que `mondayOf`/`isCurrentWeek`, para que ambos coincidan).
-  const todayIndex = (() => {
-    const d = new Date().getUTCDay(); // 0=domingo..6=sábado
-    return d === 0 ? 6 : d - 1; // 0=lunes..6=domingo
-  })();
+  const todayIdx = todayIndex();
 
   return (
     <div className="mt-6 space-y-6">
@@ -330,6 +353,9 @@ export default function MenuClient() {
         <div className="rounded-xl border border-dashed border-black/15 bg-black/[0.02] px-4 py-3 text-sm text-ink-muted dark:border-white/15 dark:bg-white/[0.02]">
           Todavía no has generado el menú de esta semana. Si sabes que vas a comer fuera algún día, marca esas
           franjas con 🚫 antes de darle a &ldquo;Generar menú semanal&rdquo;.
+          {isCurrentWeek && todayIdx > 0 && (
+            <> Los días ya pasados de esta semana vienen premarcados como 🚫; desmárcalos si quieres rellenarlos igualmente.</>
+          )}
         </div>
       )}
 
@@ -343,7 +369,7 @@ export default function MenuClient() {
         >
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {DAY_LABELS.map((label, day) => {
-              const isToday = isCurrentWeek && day === todayIndex;
+              const isToday = isCurrentWeek && day === todayIdx;
               return (
                 <div
                   key={day}
