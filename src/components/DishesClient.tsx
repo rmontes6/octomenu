@@ -12,6 +12,7 @@ import {
   SEASON_OPTIONS,
   FOOD_GROUP_LABELS,
   FOOD_GROUP_OPTIONS,
+  COMMON_UNITS,
 } from "@/lib/labels";
 
 type Ingredient = { id?: string; name: string; quantity: number | null; unit: string | null };
@@ -330,6 +331,7 @@ export default function DishesClient() {
                     value={ing.unit ?? ""}
                     onChange={(e) => updateIngredient(i, { unit: e.target.value })}
                     placeholder="Unidad (g, ud...)"
+                    list="unit-suggestions"
                     className="input w-32"
                   />
                   <button
@@ -349,6 +351,11 @@ export default function DishesClient() {
             >
               + Añadir ingrediente
             </button>
+            <datalist id="unit-suggestions">
+              {COMMON_UNITS.map((unit) => (
+                <option key={unit} value={unit} />
+              ))}
+            </datalist>
           </div>
 
           <div className="flex items-center gap-2">
