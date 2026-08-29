@@ -87,6 +87,7 @@ function pickDiverse<T extends { id: string; foodGroup: string }>(
 }
 
 type CarryOver = { slot: DishCategory; dishId: string; sourceKey: string; foodGroup: DishFoodGroup };
+type CarryOverBySlot = Partial<Record<DishCategory, CarryOver>>;
 
 /**
  * Genera una semana completa a partir del catálogo de platos activos.
@@ -111,7 +112,7 @@ export function generateWeek(dishes: DishForGeneration[], options: GenerateWeekO
   // (ver pickDiverse). Se usa para preferir blandamente los grupos menos
   // repetidos, nunca para prohibir uno.
   const foodGroupCounts: Record<string, number> = {};
-  let carryOver: Partial<Record<MealSlot, CarryOver>> = {};
+  let carryOver: Partial<Record<MealSlot, CarryOverBySlot>> = {};
 
   function pool(category: DishCategory, mealType: MealSlot) {
     return dishes.filter(
@@ -120,7 +121,7 @@ export function generateWeek(dishes: DishForGeneration[], options: GenerateWeekO
   }
 
   for (let day = 0; day < DAYS; day++) {
-    const nextCarryOver: Partial<Record<MealSlot, CarryOver>> = {};
+    const nextCarryOver: Partial<Record<MealSlot, CarryOverBySlot>> = {};
 
     for (const mealType of MEAL_TYPES) {
       if (excludedSlots.has(`${day}-${mealType}`)) {
@@ -130,16 +131,32 @@ export function generateWeek(dishes: DishForGeneration[], options: GenerateWeekO
         continue;
       }
 
-      const carried = carryOver[mealType];
-      if (carried) {
-        // Plato que "rinde 2 tomas": se repite en la misma franja del día
-        // siguiente sin volver a tirar el dado, y no se re-propaga más allá.
-        entries.push({ dayOfWeek: day, mealType, slot: carried.slot, dishId: carried.dishId, sourceKey: carried.sourceKey });
-        if (carried.slot !== "ACOMPANAMIENTO") {
-          foodGroupCounts[carried.foodGroup] = (foodGroupCounts[carried.foodGroup] ?? 0) + 1;
-        }
+      const carried = carryOver[mealType] ?? {};
+      const carriedUnico = carried.PLATO_UNICO;
+
+      if (carriedUnico) {
+        // Plato único que "rinde 2 tomas": se repite en la misma franja del
+        // día siguiente sin volver a tirar el dado, y no se re-propaga más
+        // allá (no vuelve a pasar por la lógica de programar carry-over).
+        entries.push({
+          dayOfWeek: day,
+          mealType,
+          slot: "PLATO_UNICO",
+          dishId: carriedUnico.dishId,
+          sourceKey: carriedUnico.sourceKey,
+        });
+        foodGroupCounts[carriedUnico.foodGroup] = (foodGroupCounts[carriedUnico.foodGroup] ?? 0) + 1;
         continue;
       }
+
+      // Primero, segundo y/o guarnición pueden "rendir 2 tomas" cada uno por
+      // su cuenta (son platos independientes). Si solo una parte de la
+      // pareja primero+segundo viene arrastrada del día anterior, la otra se
+      // elige fresca aquí mismo (igual que en una generación normal) para no
+      // dejarla suelta — nunca se sirve un primero o un segundo aislado.
+      const carriedPrimero = carried.PRIMERO;
+      const carriedSegundo = carried.SEGUNDO;
+      const carriedAcomp = carried.ACOMPANAMIENTO;
 
       const unicoPool = pool("PLATO_UNICO", mealType);
       const primeroPool = pool("PRIMERO", mealType);
@@ -147,15 +164,23 @@ export function generateWeek(dishes: DishForGeneration[], options: GenerateWeekO
       const acompPool = pool("ACOMPANAMIENTO", mealType);
 
       const canUnico = unicoPool.length > 0;
-      const canPrimeroSegundo = primeroPool.length > 0 && segundoPool.length > 0;
+      const canPrimeroSegundo =
+        (!!carriedPrimero || primeroPool.length > 0) && (!!carriedSegundo || segundoPool.length > 0);
+      const forcedPair = !!(carriedPrimero || carriedSegundo);
 
       // Solo dos estructuras posibles: plato único, o primero + segundo
       // siempre juntos. Un primero o un segundo nunca salen solos — si el
       // catálogo no da para completar la pareja, el hueco se deja vacío
       // en vez de degradar a "el que quede solo" (un primero contundente
       // que se baste por sí solo debería darse de alta como plato único).
+      // Si hay un primero o segundo arrastrado del día anterior, la pareja
+      // es obligatoria ese día (no se sortea "único" en su lugar): si no
+      // hay forma de completarla, el hueco se deja vacío y el arrastre
+      // pendiente se descarta (nunca se propaga más de un día extra).
       let structure: "UNICO" | "PRIMERO_SEGUNDO" | null = null;
-      if (canUnico && canPrimeroSegundo) {
+      if (forcedPair) {
+        structure = canPrimeroSegundo ? "PRIMERO_SEGUNDO" : null;
+      } else if (canUnico && canPrimeroSegundo) {
         structure = rng() < 0.5 ? "UNICO" : "PRIMERO_SEGUNDO";
       } else if (canUnico) {
         structure = "UNICO";
@@ -165,36 +190,61 @@ export function generateWeek(dishes: DishForGeneration[], options: GenerateWeekO
 
       if (!structure) continue; // no hay platos disponibles para esta franja: se deja vacía
 
-      const chosen: { slot: DishCategory; dish: DishForGeneration }[] = [];
+      const chosen: { slot: DishCategory; dish: DishForGeneration; carried: CarryOver | null }[] = [];
       if (structure === "UNICO") {
-        chosen.push({ slot: "PLATO_UNICO", dish: pickDiverse(unicoPool, foodGroupCounts, recentDishIds, rng)! });
+        chosen.push({
+          slot: "PLATO_UNICO",
+          dish: pickDiverse(unicoPool, foodGroupCounts, recentDishIds, rng)!,
+          carried: null,
+        });
       } else if (structure === "PRIMERO_SEGUNDO") {
-        chosen.push({ slot: "PRIMERO", dish: pickDiverse(primeroPool, foodGroupCounts, recentDishIds, rng)! });
-        chosen.push({ slot: "SEGUNDO", dish: pickDiverse(segundoPool, foodGroupCounts, recentDishIds, rng)! });
+        const primeroDish = carriedPrimero
+          ? dishes.find((d) => d.id === carriedPrimero.dishId)!
+          : pickDiverse(primeroPool, foodGroupCounts, recentDishIds, rng)!;
+        chosen.push({ slot: "PRIMERO", dish: primeroDish, carried: carriedPrimero ?? null });
+
+        const segundoDish = carriedSegundo
+          ? dishes.find((d) => d.id === carriedSegundo.dishId)!
+          : pickDiverse(segundoPool, foodGroupCounts, recentDishIds, rng)!;
+        chosen.push({ slot: "SEGUNDO", dish: segundoDish, carried: carriedSegundo ?? null });
       }
 
-      for (const { dish } of chosen) {
-        usedDishIds.add(dish.id);
+      for (const { dish, carried: c } of chosen) {
+        if (!c) usedDishIds.add(dish.id);
         foodGroupCounts[dish.foodGroup] = (foodGroupCounts[dish.foodGroup] ?? 0) + 1;
       }
 
       // La guarnición solo se empareja con el segundo de un "primero + segundo" (nunca
       // con un plato único, y ya no existe la estructura "segundo solo"). Depende por
       // completo de si ese segundo lleva guarnición (`wantsAcompanamiento`), no es un sorteo.
+      // Si hay una guarnición arrastrada del día anterior se reutiliza (sin volver a
+      // sortear); si el segundo de hoy no la quiere, el arrastre queda huérfano y se
+      // descarta en vez de colarse igualmente.
       const segundoChosen = chosen.find((c) => c.slot === "SEGUNDO");
       const wantsAcomp = segundoChosen ? segundoChosen.dish.wantsAcompanamiento : false;
-      if (wantsAcomp && acompPool.length > 0) {
+      if (wantsAcomp && carriedAcomp) {
+        chosen.push({
+          slot: "ACOMPANAMIENTO",
+          dish: dishes.find((d) => d.id === carriedAcomp.dishId)!,
+          carried: carriedAcomp,
+        });
+      } else if (wantsAcomp && acompPool.length > 0) {
         const acomp = pickPreferringFresh(acompPool, recentDishIds, rng)!;
         usedDishIds.add(acomp.id);
-        chosen.push({ slot: "ACOMPANAMIENTO", dish: acomp });
+        chosen.push({ slot: "ACOMPANAMIENTO", dish: acomp, carried: null });
       }
 
-      for (const { slot, dish } of chosen) {
+      for (const { slot, dish, carried: c } of chosen) {
         const k = entryKey(day, mealType, slot);
-        entries.push({ dayOfWeek: day, mealType, slot, dishId: dish.id, sourceKey: null });
+        entries.push({ dayOfWeek: day, mealType, slot, dishId: dish.id, sourceKey: c ? c.sourceKey : null });
 
-        if (dish.yieldsTwoMeals && day + 1 < DAYS) {
-          nextCarryOver[mealType] = { slot, dishId: dish.id, sourceKey: k, foodGroup: dish.foodGroup };
+        // Un plato ya arrastrado (segundo día de sus "2 tomas") no vuelve a
+        // programarse: nunca se propaga más de un día extra.
+        if (!c && dish.yieldsTwoMeals && day + 1 < DAYS) {
+          nextCarryOver[mealType] = {
+            ...nextCarryOver[mealType],
+            [slot]: { slot, dishId: dish.id, sourceKey: k, foodGroup: dish.foodGroup },
+          };
         }
       }
     }

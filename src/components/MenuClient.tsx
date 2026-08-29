@@ -367,7 +367,7 @@ export default function MenuClient() {
           </button>
         </div>
         <div className="flex items-center gap-2">
-          {isCurrentWeek && menu && (
+          {menu && (
             <button
               type="button"
               onClick={() => {
